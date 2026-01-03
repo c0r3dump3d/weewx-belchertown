@@ -472,7 +472,7 @@ class getData(SearchList):
         # Set default radar html code, and override with user-specified value
         if self.generator.skin_dict["Extras"].get("radar_html") == "":
             if self.generator.skin_dict["Extras"].get("aeris_map") == "1":
-                radar_html = '<img style="object-fit:cover;width:{}px;height:{}px" src="https://maps.aerisapi.com/{}_{}/flat,water-depth,counties:60,rivers,interstates:60,admin-cities,alerts-severe:50:blend(darken),radar:blend(darken)/{}x{}/{},{},{}/current.png" referrerpolicy="no-referrer"></img>'.format(
+                radar_html = '<img style="object-fit:cover;width:{}px;height:{}px" src="https://maps.aerisapi.com/{}_{}/flat,water-depth,counties:60,rivers,interstates:60,admin-cities,alerts-severe:50:blend(darken),radar:blend(darken)/{}x{}/{},{},{}/current.png"></img>'.format(
                     radar_width,
                     radar_height,
                     self.generator.skin_dict["Extras"]["forecast_api_id"],
@@ -492,7 +492,7 @@ class getData(SearchList):
 
         if self.generator.skin_dict["Extras"].get("radar_html_dark") == "":
             if self.generator.skin_dict["Extras"].get("aeris_map") == "1":
-                radar_html_dark = '<img style="object-fit:cover;width:{}px;height:{}px" src="https://maps.aerisapi.com/{}_{}/flat-dk,water-depth-dk,counties:60,rivers,interstates:60,admin-cities-dk,alerts-severe:50:blend(lighten),radar:blend(lighten)/{}x{}/{},{},{}/current.png" referrerpolicy="no-referrer"></img>'.format(
+                radar_html_dark = '<img style="object-fit:cover;width:{}px;height:{}px" src="https://maps.aerisapi.com/{}_{}/flat-dk,water-depth-dk,counties:60,rivers,interstates:60,admin-cities-dk,alerts-severe:50:blend(lighten),radar:blend(lighten)/{}x{}/{},{},{}/current.png"></img>'.format(
                     radar_width,
                     radar_height,
                     self.generator.skin_dict["Extras"]["forecast_api_id"],
@@ -1677,7 +1677,7 @@ class getData(SearchList):
                     else:  # assume miles
                         try:
                             eqmatched = match(
-                                "(?P<distance>[0-9]*\\.?[0-9]+) km(?P<rest>.*)$",
+                                "(?P<distance>[0-9]*\.?[0-9]+) km(?P<rest>.*)$",
                                 eqdata["features"][0]["properties"]["place"],
                             )
                             eqdist_km = eqmatched.group("distance")
@@ -2716,41 +2716,30 @@ class HighchartsJsonGenerator(weewx.reportengine.ReportGenerator):
                             "yAxis_max"
                         ] = yAxis_max
 
-                    # data rounding
-                    obs_round = None
-                    if (obs_round is None and 
-                        self.chart_dict[chart_group][plotname][line_name].get("numberFormat",dict()).get(
-                            "decimals") is not None
-                       ):
-                        # The user specified decimals. Use them for rounding,
-                        # too.
-                        try:
-                            obs_round = float(self.chart_dict[chart_group][plotname][line_name]["numberFormat"]["decimals"])
-                        except (ValueError,TypeError):
-                            logerr("cannot use numberFormat decimals %s for rounding" % self.chart_dict[chart_group][plotname][line_name]["numberFormat"]["decimals"])
-                    if obs_round is None:
-                        # Add rounding from weewx.conf/skin.conf so Highcharts can use it
-                        if observation_type == "rainTotal":
-                            rounding_obs_lookup = "rain"
-                        elif observation_type == "weatherRange":
-                            rounding_obs_lookup = weatherRange_obs_lookup
-                        elif observation_type == "haysChart":
-                            rounding_obs_lookup = "windSpeed"
-                        else:
-                            rounding_obs_lookup = observation_type
-                        try:
-                            obs_group = weewx.units.obs_group_dict[rounding_obs_lookup]
-                            obs_unit = self.converter.group_unit_dict[obs_group]
-                            obs_round = self.skin_dict["Units"]["StringFormats"].get(
-                                obs_unit, "0"
-                            )[2]
-                        except:
-                            # Not a valid weewx schema name - maybe this is
-                            # windRose or something?
-                            obs_round = -1
-                    output[chart_group][plotname]["series"][line_name][
-                        "rounding"
-                    ] = obs_round
+                    # Add rounding from weewx.conf/skin.conf so Highcharts can use it
+                    if observation_type == "rainTotal":
+                        rounding_obs_lookup = "rain"
+                    elif observation_type == "weatherRange":
+                        rounding_obs_lookup = weatherRange_obs_lookup
+                    elif observation_type == "haysChart":
+                        rounding_obs_lookup = "windSpeed"
+                    else:
+                        rounding_obs_lookup = observation_type
+                    try:
+                        obs_group = weewx.units.obs_group_dict[rounding_obs_lookup]
+                        obs_unit = self.converter.group_unit_dict[obs_group]
+                        obs_round = self.skin_dict["Units"]["StringFormats"].get(
+                            obs_unit, "0"
+                        )[2]
+                        output[chart_group][plotname]["series"][line_name][
+                            "rounding"
+                        ] = obs_round
+                    except:
+                        # Not a valid weewx schema name - maybe this is
+                        # windRose or something?
+                        output[chart_group][plotname]["series"][line_name][
+                            "rounding"
+                        ] = "-1"
 
                     # Set default colors, unless the user has specified
                     # otherwise in graphs.conf
@@ -2779,8 +2768,7 @@ class HighchartsJsonGenerator(weewx.reportengine.ReportGenerator):
                         mirrored_value,
                         weatherRange_obs_lookup,
                         wind_rose_color,
-                        special_target_unit,
-                        obs_round
+                        special_target_unit
                     )
 
                     # Build the final series data JSON
@@ -2850,8 +2838,7 @@ class HighchartsJsonGenerator(weewx.reportengine.ReportGenerator):
         mirrored_value,
         weatherRange_obs_lookup,
         wind_rose_color,
-        special_target_unit,
-        obs_round
+        special_target_unit
     ):
         """
         Get the SQL vectors for the observation, the aggregate type and the
@@ -3788,12 +3775,9 @@ class HighchartsJsonGenerator(weewx.reportengine.ReportGenerator):
                 ]
             else:
                 try:
-                   if obs_round is None:
-                       usage_round = int(
-                           self.skin_dict["Units"]["StringFormats"].get(obs_vt[1], "2f")[-2]
-                       )
-                   else:
-                       usage_round = int(obs_round)+1
+                   usage_round = int(
+                       self.skin_dict["Units"]["StringFormats"].get(obs_vt[1], "2f")[-2]
+                   )
                 except ValueError:
                    loginf (
                       "Observation %s is using unit %s that returns %s for StringFormat, rather than float point decimal format value - using 0 as rounding"
